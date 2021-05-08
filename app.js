@@ -1,13 +1,15 @@
 const axios = require('axios');
+const _ = require('lodash');
 const baseURL =
 	'https://cdn-api.co-vin.in/api/v2/appointment/sessions/public/calendarByDistrict';
 const myArgs = process.argv.slice(2);
-
+const telegram = require('./telegram');
 let change = false;
-const sessions = [];
+
+let sessions = [];
+let prevSessions = [];
 
 const parseData = data => {
-	// console.log(data.centers);
 	change = false;
 	data.centers.forEach(center => {
 		const available_sessions = [];
@@ -15,15 +17,20 @@ const parseData = data => {
 			if (session.available_capacity > 0) {
 				change = true;
 				available_sessions.push(session);
+				sessions.push({
+					...center,
+					sessions: available_sessions,
+				});
 			}
 		});
-		sessions.push({
-			...center,
-			sessions: available_sessions,
-		});
 	});
-	if (change === true) displaySessions();
-	else console.log('No Vaccination Available');
+
+	if (change === true) {
+		if (!_.isEqual(sessions, prevSessions)) {
+			telegram.notifyVaccine(sessions, myArgs[0]);
+			prevSessions = sessions;
+		} else console.log('No Update Since Last Change');
+	} else console.log('No Vaccination Available');
 };
 
 const getVaccinationCentres = async () => {
@@ -43,6 +50,7 @@ const getVaccinationCentres = async () => {
 
 		const response = await axios(config);
 		console.log('Fetched Data @', new Date().toISOString());
+		console.log('District Code : ', myArgs[0]);
 		parseData(response.data);
 	} catch (err) {
 		console.log('Request Errored Out!');
@@ -51,10 +59,9 @@ const getVaccinationCentres = async () => {
 	}
 };
 
-const displaySessions = () => {
-	sessions.forEach(session => {
-		console.log(session);
-	});
-};
-
+telegram.initializeWatcherCofirmation(myArgs[0]);
+getVaccinationCentres();
 setInterval(getVaccinationCentres, 30000);
+setInterval(() => {
+	telegram.notificationService(myArgs[0]);
+}, 1800000);
