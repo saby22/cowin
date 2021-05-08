@@ -1,0 +1,60 @@
+const axios = require('axios');
+const baseURL =
+	'https://cdn-api.co-vin.in/api/v2/appointment/sessions/public/calendarByDistrict';
+const myArgs = process.argv.slice(2);
+
+let change = false;
+const sessions = [];
+
+const parseData = data => {
+	// console.log(data.centers);
+	change = false;
+	data.centers.forEach(center => {
+		const available_sessions = [];
+		center.sessions.forEach(session => {
+			if (session.available_capacity > 0) {
+				change = true;
+				available_sessions.push(session);
+			}
+		});
+		sessions.push({
+			...center,
+			sessions: available_sessions,
+		});
+	});
+	if (change === true) displaySessions();
+	else console.log('No Vaccination Available');
+};
+
+const getVaccinationCentres = async () => {
+	try {
+		const currDate = new Date();
+		const config = {
+			method: 'get',
+			url: baseURL,
+			params: {
+				district_id: myArgs[0],
+				date: `${currDate.getDate()}-${
+					currDate.getMonth() + 1
+				}-${currDate.getFullYear()}`,
+			},
+			headers: {'User-Agent': 'PostmanRuntime/7.26.8'},
+		};
+
+		const response = await axios(config);
+		console.log('Fetched Data @', new Date().toISOString());
+		parseData(response.data);
+	} catch (err) {
+		console.log('Request Errored Out!');
+		console.log('Error Code : ', err.response.status);
+		console.log('Error Message : ', err.response.statusText);
+	}
+};
+
+const displaySessions = () => {
+	sessions.forEach(session => {
+		console.log(session);
+	});
+};
+
+setInterval(getVaccinationCentres, 10000);
