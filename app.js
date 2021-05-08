@@ -57,4 +57,4 @@ const displaySessions = () => {
 	});
 };
 
-setInterval(getVaccinationCentres, 10000);
+setInterval(getVaccinationCentres, 30000);
